@@ -1,5 +1,4 @@
 import express from "express";
-import serverless from "serverless-http";
 import dotenv from "dotenv";
 import cors from "cors";
 import dbConnect from "../config/dbConnect.js";
@@ -80,4 +79,8 @@ app.use((error, req, res, next) => {
   });
 });
 
-export default serverless(app);
+// --- Start server for Railway ---
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
