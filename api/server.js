@@ -8,12 +8,11 @@ import courseRouter from "../routes/courseRoutes.js";
 import userRouter from "../routes/userRoutes.js";
 import { clerkWebHooks, stripeWebHooks } from "../controllers/webhooks.js";
 import { clerkMiddleware } from "@clerk/express";
-import multer from "multer";
 
 dotenv.config();
 const app = express();
 
-// Webhooks (before body parsing)
+// Webhooks 
 app.post("/stripe", express.raw({ type: "application/json" }), stripeWebHooks);
 app.post("/clerk", express.raw({ type: "application/json" }), clerkWebHooks);
 
@@ -31,7 +30,6 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(clerkMiddleware());
 
-// --- Lazy Initialization ---
 let isDBConnected = false;
 
 const initializeServices = async () => {
@@ -39,7 +37,7 @@ const initializeServices = async () => {
     await dbConnect();
     isDBConnected = true;
   }
-  connectCloudinary(); // No await needed
+  connectCloudinary();
 };
 
 // Middleware to ensure DB is connected
@@ -68,11 +66,6 @@ app.get("/health", (req, res) => res.json({ status: "OK", timestamp: new Date() 
 // Error handling
 app.use((error, req, res, next) => {
   console.error(error.stack);
-  if (error instanceof multer.MulterError) {
-    return res
-      .status(400)
-      .json({ success: false, message: `File upload error: ${error.message}` });
-  }
   res.status(500).json({
     success: false,
     message: process.env.NODE_ENV === "production" ? "Internal server error" : error.message,
@@ -81,6 +74,6 @@ app.use((error, req, res, next) => {
 
 // --- Start server for Railway ---
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 });

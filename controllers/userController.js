@@ -1,4 +1,3 @@
-// controllers/userController.js
 import User from "../models/User.js";
 import Purchase from "../models/Purchase.js";
 import Course from "../models/Course.js";

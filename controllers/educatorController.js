@@ -1,14 +1,9 @@
-// controllers/educatorController.js
 import { clerkClient } from "@clerk/express";
 import User from "../models/User.js";
 import Course from "../models/Course.js";
 import { v2 as cloudinary } from "cloudinary";
 import Purchase from "../models/Purchase.js";
 import fs from "fs";
-import { promisify } from "util";
-
-// Promisify fs.unlink for async/await usage
-const unlinkAsync = promisify(fs.unlink);
 
 // ====================== Update Role to Educator ======================
 export const updateRoleToEducator = async (req, res) => {
@@ -33,8 +28,6 @@ export const updateRoleToEducator = async (req, res) => {
 
 // ====================== Add New Course ======================
 export const addCourse = async (req, res) => {
-  let imageFile = null;
-  
   try {
     // Check if file was uploaded
     if (!req.file) {
@@ -43,8 +36,7 @@ export const addCourse = async (req, res) => {
         message: "Please upload a course thumbnail",
       });
     }
-    
-    imageFile = req.file;
+
     const { courseData } = req.body;
     const educatorId = req.auth.userId;
 
@@ -52,8 +44,8 @@ export const addCourse = async (req, res) => {
     const user = await clerkClient.users.getUser(educatorId);
     if (user.publicMetadata.role !== "educator") {
       // Clean up uploaded file if not educator
-      if (imageFile && imageFile.path) {
-        await unlinkAsync(imageFile.path).catch(() => {});
+      if (req.file && req.file.path) {
+        fs.unlinkSync(req.file.path);
       }
       return res.status(403).json({
         success: false,
@@ -67,8 +59,8 @@ export const addCourse = async (req, res) => {
       parsedCourseData = JSON.parse(courseData);
     } catch (parseError) {
       // Clean up uploaded file if JSON parsing fails
-      if (imageFile && imageFile.path) {
-        await unlinkAsync(imageFile.path).catch(() => {});
+      if (req.file && req.file.path) {
+        fs.unlinkSync(req.file.path);
       }
       return res.status(400).json({
         success: false,
@@ -76,22 +68,19 @@ export const addCourse = async (req, res) => {
       });
     }
 
-    parsedCourseData.educator = educatorId;
-    parsedCourseData.isPublished = false;
-
     // Upload thumbnail to cloudinary
     let imageUpload;
     try {
-      imageUpload = await cloudinary.uploader.upload(imageFile.path, {
+      imageUpload = await cloudinary.uploader.upload(req.file.path, {
         folder: "course-thumbnails",
       });
       
-      // Clean up local file after successful upload using promisified version
-      await unlinkAsync(imageFile.path);
+      // Clean up local file after successful upload
+      fs.unlinkSync(req.file.path);
     } catch (uploadError) {
       // Clean up local file if upload fails
-      if (imageFile && imageFile.path) {
-        await unlinkAsync(imageFile.path).catch(() => {});
+      if (req.file && req.file.path) {
+        fs.unlinkSync(req.file.path);
       }
       return res.status(500).json({
         success: false,
@@ -102,7 +91,9 @@ export const addCourse = async (req, res) => {
     // Create course with thumbnail URL
     const newCourse = await Course.create({
       ...parsedCourseData,
+      educator: educatorId,
       courseThumbnail: imageUpload.secure_url,
+      isPublished: false,
     });
 
     res.json({
@@ -111,12 +102,13 @@ export const addCourse = async (req, res) => {
       course: newCourse,
     });
   } catch (error) {
+    console.error("Error in addCourse:", error);
+    
     // Clean up uploaded file in case of any error
-    if (imageFile && imageFile.path) {
-      await unlinkAsync(imageFile.path).catch(() => {});
+    if (req.file && req.file.path) {
+      fs.unlinkSync(req.file.path);
     }
     
-    console.error("Error in addCourse:", error);
     res.status(500).json({
       success: false,
       message: error.message,

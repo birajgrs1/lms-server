@@ -1,4 +1,3 @@
-// controllers/courseController.js
 import Course from "../models/Course.js";
 
 export const getAllCourse = async (req, res) => {
@@ -17,6 +16,7 @@ export const getAllCourse = async (req, res) => {
     });
   }
 };
+
 // Get course by id
 export const getCourseById = async (req, res) => {
   const { id } = req.params;
