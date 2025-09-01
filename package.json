@@ -20,6 +20,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@clerk/clerk-sdk-node": "^5.1.6",
     "@clerk/express": "^1.7.25",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
