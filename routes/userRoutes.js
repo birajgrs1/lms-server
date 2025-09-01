@@ -1,21 +1,24 @@
+// routes/userRoutes.js
 import express from "express";
 import {
-  getUserCourseProgress,
   getUserData,
+  userEnrolledCourses,
   purchaseCourse,
   updateUserCourseProgress,
-  userEnrolledCourses,
+  getUserCourseProgress,
   userRating,
 } from "../controllers/userController.js";
-import { requireAuth } from "@clerk/clerk-sdk-node"; 
+import { clerkMiddleware } from "@clerk/express";
 
 const userRouter = express.Router();
 
-userRouter.get("/data", requireAuth(), getUserData);
-userRouter.get("/enrolled-courses", requireAuth(), userEnrolledCourses);
-userRouter.post("/purchase", requireAuth(), purchaseCourse);
-userRouter.post("/update-course-progress", requireAuth(), updateUserCourseProgress);
-userRouter.post("/get-course-progress", requireAuth(), getUserCourseProgress);
-userRouter.post("/add-rating", requireAuth(), userRating);
+userRouter.use(clerkMiddleware());
+
+userRouter.get("/data", getUserData);
+userRouter.get("/enrolled-courses", userEnrolledCourses);
+userRouter.post("/purchase", purchaseCourse);
+userRouter.post("/update-course-progress", updateUserCourseProgress);
+userRouter.post("/get-course-progress", getUserCourseProgress);
+userRouter.post("/add-rating", userRating);
 
 export default userRouter;
