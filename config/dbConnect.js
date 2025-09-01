@@ -3,10 +3,8 @@ import mongoose from "mongoose";
 let isConnected = false; // cached connection
 
 const connectDB = async () => {
-  if (isConnected) return;
-
-  if (mongoose.connection.readyState === 1) {
-    isConnected = true;
+  if (isConnected) {
+    console.log("✅ Using existing database connection");
     return;
   }
 

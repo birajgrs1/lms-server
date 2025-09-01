@@ -1,9 +1,7 @@
 import { clerkClient } from "@clerk/express";
-import User from "../models/User.js";
 import Course from "../models/Course.js";
-import { v2 as cloudinary } from "cloudinary";
 import Purchase from "../models/Purchase.js";
-import fs from "fs";
+import { uploadToCloudinary } from "../config/multer.js";
 
 // ====================== Update Role to Educator ======================
 export const updateRoleToEducator = async (req, res) => {
@@ -19,6 +17,7 @@ export const updateRoleToEducator = async (req, res) => {
       message: "You can publish a course now!",
     });
   } catch (error) {
+    console.error("Error in updateRoleToEducator:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -43,10 +42,6 @@ export const addCourse = async (req, res) => {
     // Validate educator role
     const user = await clerkClient.users.getUser(educatorId);
     if (user.publicMetadata.role !== "educator") {
-      // Clean up uploaded file if not educator
-      if (req.file && req.file.path) {
-        fs.unlinkSync(req.file.path);
-      }
       return res.status(403).json({
         success: false,
         message: "Only educators can add courses",
@@ -58,30 +53,18 @@ export const addCourse = async (req, res) => {
     try {
       parsedCourseData = JSON.parse(courseData);
     } catch (parseError) {
-      // Clean up uploaded file if JSON parsing fails
-      if (req.file && req.file.path) {
-        fs.unlinkSync(req.file.path);
-      }
       return res.status(400).json({
         success: false,
         message: "Invalid course data format",
       });
     }
 
-    // Upload thumbnail to cloudinary
+    // Upload thumbnail to cloudinary from buffer
     let imageUpload;
     try {
-      imageUpload = await cloudinary.uploader.upload(req.file.path, {
-        folder: "course-thumbnails",
-      });
-      
-      // Clean up local file after successful upload
-      fs.unlinkSync(req.file.path);
+      imageUpload = await uploadToCloudinary(req.file.buffer, "course-thumbnails");
     } catch (uploadError) {
-      // Clean up local file if upload fails
-      if (req.file && req.file.path) {
-        fs.unlinkSync(req.file.path);
-      }
+      console.error("Cloudinary upload error:", uploadError);
       return res.status(500).json({
         success: false,
         message: "Failed to upload image: " + uploadError.message,
@@ -103,12 +86,6 @@ export const addCourse = async (req, res) => {
     });
   } catch (error) {
     console.error("Error in addCourse:", error);
-    
-    // Clean up uploaded file in case of any error
-    if (req.file && req.file.path) {
-      fs.unlinkSync(req.file.path);
-    }
-    
     res.status(500).json({
       success: false,
       message: error.message,
@@ -127,6 +104,7 @@ export const getEducatorCourses = async (req, res) => {
       courses,
     });
   } catch (error) {
+    console.error("Error in getEducatorCourses:", error);
     res.status(500).json({
       success: false,
       message: error.message,
@@ -219,7 +197,7 @@ export const getEnrolledStudentsData = async (req, res) => {
       student: {
         name: purchase.userId.name,
         imageUrl: purchase.userId.imageUrl,
-        fullName: purchase.userId.name // Added fullName for frontend compatibility
+        fullName: purchase.userId.name
       }
     }));
 

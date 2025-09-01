@@ -17,12 +17,11 @@ educatorRouter.get("/update-role", updateRoleToEducator);
 // Add course
 educatorRouter.post(
   "/add-course",
-  upload.single("courseThumbnail"),
   protectEducator,
+  upload.single("courseThumbnail"),
   addCourse
 );
 
-// Other routes
 educatorRouter.get("/courses", protectEducator, getEducatorCourses);
 educatorRouter.get("/dashboard", protectEducator, educatorDashboardData);
 educatorRouter.get("/enrolled-students", protectEducator, getEnrolledStudentsData);
