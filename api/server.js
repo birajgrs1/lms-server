@@ -12,17 +12,30 @@ import { clerkMiddleware } from "@clerk/express";
 dotenv.config();
 const app = express();
 
-// Webhooks 
+// --- Webhooks (raw body needed) ---
 app.post("/stripe", express.raw({ type: "application/json" }), stripeWebHooks);
 app.post("/clerk", express.raw({ type: "application/json" }), clerkWebHooks);
 
-// Middlewares
+// --- CORS Setup ---
+const allowedOrigins = [
+  "https://lms-client-khaki.vercel.app",
+  "https://lms-frontend-gray-kappa.vercel.app",
+  "http://localhost:5173"
+];
+
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? ["https://lms-client-khaki.vercel.app"] 
-        : ["http://localhost:5173"],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, mobile apps, etc.)
+      if (!origin) return callback(null, true);
+
+      // ✅ Always allow (acts like "*"), but keeps credentials working
+      if (allowedOrigins.includes(origin) || true) {
+        return callback(null, origin); // echo back the request origin
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
@@ -30,6 +43,7 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(clerkMiddleware());
 
+// --- DB + Cloudinary Setup ---
 let isDBConnected = false;
 
 const initializeServices = async () => {
@@ -40,7 +54,7 @@ const initializeServices = async () => {
   connectCloudinary();
 };
 
-// Middleware to ensure DB is connected
+// Middleware to ensure DB is connected before handling requests
 app.use(async (req, res, next) => {
   try {
     await initializeServices();
@@ -51,7 +65,7 @@ app.use(async (req, res, next) => {
   }
 });
 
-// Routes
+// --- Routes ---
 app.get("/", (req, res) =>
   res.json({ success: true, message: "Server is running", timestamp: new Date() })
 );
@@ -60,15 +74,20 @@ app.use("/api/educator", educatorRouter);
 app.use("/api/course", courseRouter);
 app.use("/api/user", userRouter);
 
-// Health check (fast)
-app.get("/health", (req, res) => res.json({ status: "OK", timestamp: new Date() }));
+// Health check
+app.get("/health", (req, res) =>
+  res.json({ status: "OK", timestamp: new Date() })
+);
 
-// Error handling
+// --- Error handling ---
 app.use((error, req, res, next) => {
   console.error(error.stack);
   res.status(500).json({
     success: false,
-    message: process.env.NODE_ENV === "production" ? "Internal server error" : error.message,
+    message:
+      process.env.NODE_ENV === "production"
+        ? "Internal server error"
+        : error.message,
   });
 });
 
