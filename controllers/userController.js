@@ -1,4 +1,3 @@
-// controllers/userController.js
 import User from "../models/User.js";
 import Course from "../models/Course.js";
 import Purchase from "../models/Purchase.js";
@@ -30,6 +29,9 @@ export const getUserData = async (req, res) => {
 export const userEnrolledCourses = async (req, res) => {
   try {
     const userId = req.auth?.userId;
+    if (!userId)
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+
     let user = await User.findById(userId).populate("enrolledCourses");
     if (!user)
       return res
@@ -48,6 +50,7 @@ export const purchaseCourse = async (req, res) => {
   try {
     const userId = req.auth?.userId;
     const { courseId } = req.body;
+
     if (!userId)
       return res.status(401).json({ success: false, message: "Unauthorized" });
     if (!courseId)
@@ -64,7 +67,8 @@ export const purchaseCourse = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Course not found" });
 
-    if (user.enrolledCourses.includes(courseId)) {
+    // Check if already enrolled
+    if (user.enrolledCourses.includes(course._id)) {
       return res
         .status(400)
         .json({ success: false, message: "Already enrolled" });
@@ -76,7 +80,6 @@ export const purchaseCourse = async (req, res) => {
       course.enrolledStudents.push(user._id);
       await user.save();
       await course.save();
-
       await Purchase.create({ userId, courseId, amount: 0, status: "success" });
       return res.json({ success: true, message: "Enrolled in free course" });
     }
@@ -179,11 +182,10 @@ export const userRating = async (req, res) => {
   try {
     const userId = req.auth?.userId;
     const { courseId, rating } = req.body;
-    if (!userId || !courseId || !rating || rating < 1 || rating > 5) {
+    if (!userId || !courseId || !rating || rating < 1 || rating > 5)
       return res
         .status(400)
         .json({ success: false, message: "Invalid rating data" });
-    }
 
     const course = await Course.findById(courseId);
     if (!course)
@@ -192,20 +194,17 @@ export const userRating = async (req, res) => {
         .json({ success: false, message: "Course not found" });
 
     const user = await User.findById(userId);
-    if (!user || !user.enrolledCourses.includes(courseId)) {
+    if (!user || !user.enrolledCourses.includes(course._id))
       return res
         .status(400)
         .json({ success: false, message: "User not enrolled in this course" });
-    }
 
     const existingRatingIndex = course.courseRatings.findIndex(
       (r) => r.userId.toString() === userId
     );
-    if (existingRatingIndex !== -1) {
+    if (existingRatingIndex !== -1)
       course.courseRatings[existingRatingIndex].rating = rating;
-    } else {
-      course.courseRatings.push({ userId, rating });
-    }
+    else course.courseRatings.push({ userId, rating });
 
     await course.save();
     res.json({ success: true, message: "Rating added" });
