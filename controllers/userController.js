@@ -58,9 +58,11 @@ export const purchaseCourse = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Course ID required" });
 
+    // Ensure user exists
     const user =
       (await User.findById(userId)) ||
       (await User.create({ _id: userId, enrolledCourses: [] }));
+
     const course = await Course.findById(courseId);
     if (!course)
       return res
@@ -68,27 +70,18 @@ export const purchaseCourse = async (req, res) => {
         .json({ success: false, message: "Course not found" });
 
     // Check if already enrolled
-    if (user.enrolledCourses.includes(course._id)) {
+    if (user.enrolledCourses.map(id => id.toString()).includes(course._id.toString())) {
       return res
         .status(400)
         .json({ success: false, message: "Already enrolled" });
     }
 
-    // Free course handling
-    if (course.coursePrice === 0) {
-      user.enrolledCourses.push(course._id);
-      course.enrolledStudents.push(user._id);
-      await user.save();
-      await course.save();
-      await Purchase.create({ userId, courseId, amount: 0, status: "success" });
-      return res.json({ success: true, message: "Enrolled in free course" });
-    }
-
-    // Paid course
+    // Paid course handling
     const finalAmount = (
       course.coursePrice -
       (course.discount * course.coursePrice) / 100
     ).toFixed(2);
+
     const purchase = await Purchase.create({
       userId,
       courseId,
@@ -123,6 +116,83 @@ export const purchaseCourse = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+// export const purchaseCourse = async (req, res) => {
+//   try {
+//     const userId = req.auth?.userId;
+//     const { courseId } = req.body;
+
+//     if (!userId)
+//       return res.status(401).json({ success: false, message: "Unauthorized" });
+//     if (!courseId)
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Course ID required" });
+
+//     const user =
+//       (await User.findById(userId)) ||
+//       (await User.create({ _id: userId, enrolledCourses: [] }));
+//     const course = await Course.findById(courseId);
+//     if (!course)
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Course not found" });
+
+//     // Check if already enrolled
+//     if (user.enrolledCourses.includes(course._id)) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Already enrolled" });
+//     }
+
+//     // Free course handling
+//     if (course.coursePrice === 0) {
+//       user.enrolledCourses.push(course._id);
+//       course.enrolledStudents.push(user._id);
+//       await user.save();
+//       await course.save();
+//       await Purchase.create({ userId, courseId, amount: 0, status: "success" });
+//       return res.json({ success: true, message: "Enrolled in free course" });
+//     }
+
+//     // Paid course
+//     const finalAmount = (
+//       course.coursePrice -
+//       (course.discount * course.coursePrice) / 100
+//     ).toFixed(2);
+//     const purchase = await Purchase.create({
+//       userId,
+//       courseId,
+//       amount: finalAmount,
+//       status: "pending",
+//     });
+
+//     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+//     const session = await stripe.checkout.sessions.create({
+//       line_items: [
+//         {
+//           price_data: {
+//             currency: process.env.CURRENCY?.toLowerCase() || "usd",
+//             product_data: {
+//               name: course.courseTitle,
+//               images: [course.courseThumbnail],
+//             },
+//             unit_amount: Math.round(parseFloat(finalAmount) * 100),
+//           },
+//           quantity: 1,
+//         },
+//       ],
+//       mode: "payment",
+//       success_url: `${req.headers.origin}/loading/my-enrollments`,
+//       cancel_url: `${req.headers.origin}/course/${courseId}`,
+//       metadata: { purchaseId: purchase._id.toString() },
+//     });
+
+//     res.json({ success: true, session_url: session.url });
+//   } catch (error) {
+//     console.error("Error in purchaseCourse:", error);
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 
 // Update course progress
 export const updateUserCourseProgress = async (req, res) => {
